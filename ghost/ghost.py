@@ -748,6 +748,7 @@ class Ghost(object):
             url = self.main_frame.url().toString()
         else:
             url = self.main_frame.url()
+        url = url.split("#")[0]
 
         for resource in resources:
             if url == resource.url:
