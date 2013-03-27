@@ -8,3 +8,5 @@ dist
 *.swo
 .tox
 .idea
+
+/tests/testcookie.txt
