@@ -17,7 +17,9 @@ try:
                                 QNetworkCookieJar, QNetworkDiskCache, \
                                 QNetworkProxy, QNetworkCookie
     from PyQt4 import QtCore
-    from PyQt4.QtCore import QSize, QByteArray, QUrl, QDateTime
+    from PyQt4.QtCore import QSize, QByteArray, QUrl, QDateTime,\
+                             QtCriticalMsg, QtDebugMsg, QtFatalMsg, QtWarningMsg,\
+                             qInstallMsgHandler
     from PyQt4.QtGui import QApplication, QImage, QPainter, QPrinter
 except ImportError:
     try:
@@ -26,7 +28,9 @@ except ImportError:
                                      QNetworkCookieJar, QNetworkDiskCache, \
                                      QNetworkProxy, QNetworkCookie
         from PySide import QtCore
-        from PySide.QtCore import QSize, QByteArray, QUrl, QDateTime
+        from PySide.QtCore import QSize, QByteArray, QUrl, QDateTime,\
+                                  QtCriticalMsg, QtDebugMsg, QtFatalMsg,\
+                                  QtWarningMsg, qInstallMsgHandler
         from PySide.QtGui import QApplication, QImage, QPainter, QPrinter
         PYSIDE = True
     except ImportError:
@@ -58,6 +62,21 @@ class Logger(logging.Logger):
             raise Error('invalid log level')
         getattr(logger, level)("%s: %s", sender, message)
 
+class QTMessageProxy(object):
+    def __init__(self, debug=False):
+        self.debug = debug
+
+    def __call__(self, msgType, msg):
+        if msgType == QtDebugMsg and self.debug:
+            Logger.log(msg, sender='QT', level='debug')
+        elif msgType == QtWarningMsg and self.debug:
+            Logger.log(msg, sender='QT', level='warning')
+        elif msgType == QtCriticalMsg:
+            Logger.log(msg, sender='QT', level='critical')
+        elif msgType == QtFatalMsg:
+            Logger.log(msg, sender='QT', level='fatal')
+        elif self.debug:
+            Logger.log(msg, sender='QT', level='info')
 
 class GhostWebPage(QtWebKit.QWebPage):
     """Overrides QtWebKit.QWebPage in order to intercept some graphical
@@ -184,7 +203,7 @@ class Ghost(object):
         executed until Ghost stops waiting.
     :param log_level: The optional logging level.
     :param display: A boolean that tells ghost to displays UI.
-    :param viewport_size: A tupple that sets initial viewport size.
+    :param viewport_size: A tuple that sets initial viewport size.
     :param ignore_ssl_errors: A boolean that forces ignore ssl errors.
     :param cache_dir: A directory path where to store cache datas.
     :param plugins_enabled: Enable plugins (like Flash).
@@ -204,7 +223,7 @@ class Ghost(object):
             cache_dir=os.path.join(tempfile.gettempdir(), "ghost.py"),
             plugins_enabled=False, java_enabled=False,
             plugin_path=['/usr/lib/mozilla/plugins',],
-            download_images=True):
+            download_images=True, qt_debug=False):
         self.http_resources = []
 
         self.user_agent = user_agent
@@ -226,6 +245,7 @@ class Ghost(object):
 
         if not Ghost._app:
             Ghost._app = QApplication.instance() or QApplication(['ghost'])
+            qInstallMsgHandler(QTMessageProxy(qt_debug))
             if plugin_path:
                 for p in plugin_path:
                     Ghost._app.addLibraryPath(p)
@@ -271,7 +291,10 @@ class Ghost(object):
         logger.setLevel(log_level)
 
         if self.display:
-            self.webview = QtWebKit.QWebView()
+            class MyQWebView(QtWebKit.QWebView):
+                def sizeHint(self):
+                    return QSize(*viewport_size)
+            self.webview = MyQWebView()
             if plugins_enabled:
                 self.webview.settings().setAttribute(QtWebKit.QWebSettings.PluginsEnabled, True)
             if java_enabled:
@@ -288,7 +311,7 @@ class Ghost(object):
             format=QImage.Format_ARGB32_Premultiplied):
         """Returns snapshot as QImage.
 
-        :param region: An optional tupple containing region as pixel
+        :param region: An optional tuple containing region as pixel
             coodinates.
         :param selector: A selector targeted the element to crop on.
         :param format: The output image format.
@@ -304,6 +327,9 @@ class Ghost(object):
             painter.end()
             image = image.copy(x1, y1, w, h)
         else:
+            self.main_frame.setScrollBarPolicy(QtCore.Qt.Vertical, QtCore.Qt.ScrollBarAlwaysOff)
+            self.main_frame.setScrollBarPolicy(QtCore.Qt.Horizontal, QtCore.Qt.ScrollBarAlwaysOff)
+            self.page.setViewportSize(self.main_frame.contentsSize())
             image = QImage(self.page.viewportSize(), format)
             painter = QPainter(image)
             self.main_frame.render(painter)
@@ -315,7 +341,7 @@ class Ghost(object):
         """Saves snapshot as image.
 
         :param path: The destination path.
-        :param region: An optional tupple containing region as pixel
+        :param region: An optional tuple containing region as pixel
             coodinates.
         :param selector: A selector targeted the element to crop on.
         :param format: The output image format.
@@ -374,7 +400,7 @@ class Ghost(object):
     class confirm:
         """Statement that tells Ghost how to deal with javascript confirm().
 
-        :param confirm: A bollean that confirm.
+        :param confirm: A boolean to set confirmation.
         :param callable: A callable that returns a boolean for confirmation.
         """
         def __init__(self, confirm=True, callback=None):
@@ -493,7 +519,7 @@ class Ghost(object):
         """load from cookielib's CookieJar or Set-Cookie3 format text file.
 
         :param cookie_storage: file location string on disk or CookieJar instance.
-        :param keep_old: Don't reset, keep cookies not overriden.
+        :param keep_old: Don't reset, keep cookies not overridden.
         """
         def toQtCookieJar( PyCookieJar, QtCookieJar ):
             allCookies = QtCookieJar.cookies if keep_old else []
@@ -533,7 +559,7 @@ class Ghost(object):
         :param address: The resource URL.
         :param method: The Http method.
         :param headers: An optional dict of extra request hearders.
-        :param auth: An optional tupple of HTTP auth (username, password).
+        :param auth: An optional tuple of HTTP auth (username, password).
         :param body: An optional string containing a payload.
         :param default_popup_response: the default response for any confirm/
         alert/prompt popup from the Javascript (replaces the need for the with
@@ -577,7 +603,7 @@ class Ghost(object):
             Ghost._prompt_expected = None
 
     def region_for_selector(self, selector):
-        """Returns frame region for given selector as tupple.
+        """Returns frame region for given selector as tuple.
 
         :param selector: The targeted element.
         """
@@ -660,6 +686,11 @@ class Ghost(object):
             el.setFocus()
             el.setAttribute('value', value)
 
+        def _set_select_value(el, value):
+            el.setFocus()
+            self.evaluate('document.querySelector("%s").value = "%s";' %
+                (selector.replace('"', '\"'), value.replace('"', '\"')))
+
         def _set_textarea_value(el, value):
             el.setFocus()
             el.setPlainText(value)
@@ -669,7 +700,7 @@ class Ghost(object):
         if element.isNull():
             raise Error('can\'t find element for %s"' % selector)
         if element.tagName() == "SELECT":
-            _set_text_value(element, value)
+            _set_select_value(element, value)
         elif element.tagName() == "TEXTAREA":
             _set_textarea_value(element, value)
         elif element.tagName() == "INPUT":
@@ -776,9 +807,10 @@ class Ghost(object):
 
         url = self.main_frame.url().toString()
         url = url.split("#")[0]
+        url_without_hash = url.split("#")[0]
 
         for resource in resources:
-            if url == resource.url:
+            if url == resource.url or url_without_hash == resource.url:
                 page = resource
         return page, resources
 

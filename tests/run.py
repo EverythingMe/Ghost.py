@@ -82,10 +82,11 @@ class GhostTest(GhostTestCase):
             'email': 'my@awesome.email',
             'textarea': 'Here is a sample text.\nWith several lines.',
             'checkbox': True,
+            'selectbox': 'two',
             "radio": "first choice"
         }
         self.ghost.fill('#contact-form', values)
-        for field in ['text', 'email', 'textarea']:
+        for field in ['text', 'email', 'textarea', 'selectbox']:
             value, resssources = self.ghost\
                 .evaluate('document.getElementById("%s").value' % field)
             self.assertEqual(value, values[field])
@@ -315,6 +316,11 @@ class GhostTest(GhostTestCase):
         page, resources = self.ghost.open("%surl-hash" % base_url)
         self.assertIsNotNone(page)
         self.assertTrue("Test page" in self.ghost.content)
+
+    def test_url_with_hash_header(self):
+        page, resources = self.ghost.open("%surl-hash-header" % base_url)
+        self.assertIsNotNone(page)
+        self.assertTrue("Welcome" in self.ghost.content)
 
 if __name__ == '__main__':
     unittest.main()
