@@ -812,6 +812,8 @@ class Ghost(object):
         for resource in resources:
             if url == resource.url or url_without_hash == resource.url:
                 page = resource
+                page.content = unicode(self.main_frame.toHtml())
+                break
         return page, resources
 
     def wait_for_selector(self, selector):
@@ -871,7 +873,9 @@ class Ghost(object):
         """
 
         if reply.attribute(QNetworkRequest.HttpStatusCodeAttribute):
-            Logger.log("[%s] bytesAvailable()= %s" %(str(reply.url()), reply.bytesAvailable()), level="debug")
+            Logger.log("[%s] bytesAvailable()= %s" % (str(reply.url()),
+                                                      reply.bytesAvailable()),
+                       level="debug")
 
             # Some web pages return cache headers that mandates not to cache the
             # reply, which means we won't find this QNetworkReply in the cache
