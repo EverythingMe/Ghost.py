@@ -109,11 +109,9 @@ class GhostWebPage(QtWebKit.QWebPage):
         value.
         """
         if Ghost._confirm_expected is None:
-            raise Error('You must specified a value to confirm "%s"' %
-                message)
+            raise Exception('You must specified a value to confirm "%s"' % message)
         self.ghost.append_popup_message(message)
         confirmation, callback = Ghost._confirm_expected
-        Ghost._confirm_expected = None
         Logger.log("confirm('%s')" % message, sender="Frame")
         if callback is not None:
             return callback()
@@ -134,11 +132,11 @@ class GhostWebPage(QtWebKit.QWebPage):
         if result_value == '':
             Logger.log("'%s' prompt filled with empty string" % message,
                 level='warning')
-        Ghost._prompt_expected = None
+
         if result is None:
             # PySide
             return True, result_value
-        result.append(result_value)
+        result.append(unicode(result_value))
         return True
 
     def setUserAgent(self, user_agent):
@@ -584,6 +582,10 @@ class Ghost(object):
         Ghost._prompt_expected = (default_popup_response, None)
         Ghost._confirm_expected = (default_popup_response, None)
 
+        if default_popup_response is not None:
+            Ghost._prompt_expected = (default_popup_response, None)
+            Ghost._confirm_expected = (default_popup_response, None)
+
         return self.wait_for_page_loaded()
 
     class prompt:
@@ -764,7 +766,7 @@ class Ghost(object):
         self.page.setViewportSize(QSize(width, height))
 
     def append_popup_message(self, message):
-        self.popup_messages.append(str(message))
+        self.popup_messages.append(unicode(message))
 
     def show(self):
         """Show current page inside a QWebView.
