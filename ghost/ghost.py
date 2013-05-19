@@ -808,7 +808,6 @@ class Ghost(object):
         page = None
 
         url = self.main_frame.url().toString()
-        url = url.split("#")[0]
         url_without_hash = url.split("#")[0]
 
         for resource in resources:
@@ -900,6 +899,9 @@ class Ghost(object):
 
         :param reply: The QNetworkReply object.
         """
+
+        Logger.log('unsupported content', level='warning')
+
         self.wait_for(lambda: reply.isFinished(), 'Download timeout.')
         if reply.attribute(QNetworkRequest.HttpStatusCodeAttribute):
             self.http_resources.append(HttpResource(reply, self.cache,
